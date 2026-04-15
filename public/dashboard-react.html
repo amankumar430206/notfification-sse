@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Dashboard - React Style (CDN)</title>
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 20px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .container {
+        margin-bottom: 25px;
+      }
+      input,
+      button {
+        padding: 10px 12px;
+        margin: 5px;
+        border-radius: 6px;
+        border: none;
+        font-size: 15px;
+      }
+      input {
+        background: #1e2937;
+        color: white;
+        width: 180px;
+      }
+      button {
+        background: #3b82f6;
+        color: white;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #2563eb;
+      }
+      #status {
+        font-weight: bold;
+        padding: 8px 12px;
+        border-radius: 6px;
+        display: inline-block;
+      }
+      .event {
+        background: #1e2937;
+        padding: 14px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border-left: 5px solid #3b82f6;
+      }
+      .connected {
+        background: #166534;
+        color: #86efac;
+      }
+      .disconnected {
+        background: #7f1d1d;
+        color: #fda4af;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🟢 Live Dashboard (User-Specific SSE)</h1>
+
+    <div class="container">
+      <label
+        >Your User ID:
+        <input id="userId" type="text" value="123" />
+      </label>
+      <button onclick="connectSSE()">Connect</button>
+      <button onclick="disconnectSSE()">Disconnect</button>
+    </div>
+
+    <div id="status" class="disconnected">● Disconnected</div>
+
+    <div class="container">
+      <h3>Send Notification to Specific User</h3>
+      <input id="targetUser" type="text" placeholder="Target User ID" value="123" />
+      <input id="message" type="text" placeholder="Type message here..." style="width: 320px" />
+      <button onclick="sendNotification()">Send to User</button>
+    </div>
+
+    <h2>Your Personal Live Feed</h2>
+    <div
+      id="feed"
+      style="
+        background: #1e2937;
+        padding: 20px;
+        border-radius: 10px;
+        min-height: 400px;
+        max-height: 70vh;
+        overflow-y: auto;
+      "
+    ></div>
+
+    <script>
+      let eventSource = null;
+      const feed = document.getElementById("feed");
+      const statusEl = document.getElementById("status");
+
+      function updateStatus(connected) {
+        if (connected) {
+          statusEl.textContent = "● Connected - Receiving real-time updates";
+          statusEl.className = "connected";
+        } else {
+          statusEl.textContent = "● Disconnected";
+          statusEl.className = "disconnected";
+        }
+      }
+
+      function connectSSE() {
+        const userId = document.getElementById("userId").value.trim();
+        if (!userId) {
+          alert("Please enter a valid User ID");
+          return;
+        }
+
+        if (eventSource) eventSource.close();
+
+        const url = `/events?userId=${encodeURIComponent(userId)}`;
+        eventSource = new EventSource(url);
+
+        eventSource.onopen = () => {
+          updateStatus(true);
+          console.log(`✅ SSE Connected for user: ${userId}`);
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            const div = document.createElement("div");
+            div.className = "event";
+            div.innerHTML = `
+            <strong>${(data.type || "NOTIFICATION").toUpperCase()}</strong> 
+            <small style="float:right; opacity:0.75;">
+              ${new Date(data.timestamp).toLocaleTimeString()}
+            </small><br><br>
+            ${data.message}
+            ${data.userId ? `<br><small style="opacity:0.6">→ User ${data.userId}</small>` : ""}
+          `;
+            feed.prepend(div);
+
+            if (feed.children.length > 40) feed.removeChild(feed.lastChild);
+          } catch (e) {
+            console.error("Parse error", e);
+          }
+        };
+
+        eventSource.onerror = () => {
+          updateStatus(false);
+          console.log("SSE connection error - will try to reconnect...");
+        };
+      }
+
+      function disconnectSSE() {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        updateStatus(false);
+      }
+
+      function sendNotification() {
+        const targetUser = document.getElementById("targetUser").value.trim();
+        const message = document.getElementById("message").value.trim();
+
+        if (!targetUser || !message) {
+          alert("Target User ID and Message are required");
+          return;
+        }
+
+        fetch("/send-to-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: targetUser,
+            message: message,
+            type: "notification",
+          }),
+        })
+          .then((r) => r.json())
+          .then((res) => {
+            console.log("✅ Sent:", res);
+            document.getElementById("message").value = "";
+          })
+          .catch((err) => console.error("Send failed:", err));
+      }
+
+      // Auto connect on page load
+      window.onload = connectSSE;
+    </script>
+  </body>
+</html>
