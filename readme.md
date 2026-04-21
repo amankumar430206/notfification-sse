@@ -1,7 +1,3 @@
-Here's a clean, professional, and well-structured **README.md** file content that you can copy and save as `README.md`.
-
-### 📄 `README.md` (Copy the entire content below)
-
 ````markdown
 # Live Dashboard - Real-time Notifications with SSE
 
@@ -122,7 +118,7 @@ MIT License - Feel free to use this project for learning or production.
 
 ---
 
-**Made with ❤️ for learning SSE**
+**Made with ❤️ for learning**
 
 ```
 
